@@ -1,0 +1,113 @@
+# ============================================================
+#  Florería Los Lirios — Apache .htaccess
+#  Redirige todas las peticiones a index.php (front controller)
+#  Compatible con InfinityFree y hosting Apache estándar
+# ============================================================
+
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, Accept"
+</IfModule>
+
+# Activar el motor de reescritura de URLs
+Options -Indexes
+Options +FollowSymLinks
+RewriteEngine On
+
+# Pasar el token JWT a PHP
+RewriteCond %{HTTP:Authorization} ^(.+)
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+
+# ------------------------------------------------------------
+# Seguridad: bloquear acceso directo a archivos sensibles
+# ------------------------------------------------------------
+
+# Bloquear acceso a archivos de configuración PHP
+<FilesMatch "^(database|cors)\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Bloquear acceso a archivos ocultos (.env, .git, etc.)
+<FilesMatch "^\.|\.env$|\.git">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Bloquear acceso directo a carpetas internas
+RedirectMatch 403 ^/(config|models|controllers|middleware|routes)/
+
+# ------------------------------------------------------------
+# Headers de seguridad HTTP
+# ------------------------------------------------------------
+
+<IfModule mod_headers.c>
+    # Evitar clickjacking
+    Header always set X-Frame-Options "DENY"
+
+    # Evitar MIME sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # XSS Protection (navegadores legacy)
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # Eliminar header que expone la versión de PHP
+    Header always unset X-Powered-By
+    Header unset X-Powered-By
+</IfModule>
+
+# ------------------------------------------------------------
+# Redirigir todo al front controller (index.php)
+# Excepto: archivos y directorios que existen físicamente
+# ------------------------------------------------------------
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# ------------------------------------------------------------
+# Configuración PHP (InfinityFree / cPanel compartido)
+# ------------------------------------------------------------
+
+<IfModule mod_php8.c>
+    # Zona horaria de Lima
+    php_value date.timezone "America/Lima"
+
+    # Ocultar versión de PHP en headers
+    php_flag expose_php Off
+
+    # Límites razonables para la API
+    php_value max_execution_time 30
+    php_value memory_limit 128M
+    php_value post_max_size 10M
+    php_value upload_max_filesize 5M
+
+    # Mostrar errores solo en desarrollo
+    # Cambiar a Off en producción
+    php_flag display_errors Off
+    php_flag log_errors On
+</IfModule>
+
+# Fallback para PHP 7.x por si el hosting no tiene PHP 8
+<IfModule mod_php7.c>
+    php_value date.timezone "America/Lima"
+    php_flag expose_php Off
+    php_value max_execution_time 30
+    php_value memory_limit 128M
+    php_flag display_errors Off
+    php_flag log_errors On
+</IfModule>
+
+# ------------------------------------------------------------
+# Compresión GZIP para respuestas JSON
+# ------------------------------------------------------------
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE text/plain
+</IfModule>
+
+# ============================================================
+# Fin del .htaccess
+# ============================================================
